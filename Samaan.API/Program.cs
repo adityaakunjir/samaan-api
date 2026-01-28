@@ -46,10 +46,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 
-// Add CORS for frontend
+// Add CORS for frontend - single consolidated policy
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddDefaultPolicy(policy =>
     {
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
@@ -59,15 +59,13 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
 
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+// Configure the HTTP request pipeline - Enable Swagger in all environments
+app.UseSwagger();
+app.UseSwaggerUI();
+
+// app.UseHttpsRedirection(); // Disabled for local development with HTTP
+app.UseCors(); // Use default policy
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

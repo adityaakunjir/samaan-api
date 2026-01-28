@@ -37,13 +37,21 @@ namespace Samaan.API.Controllers
         // GET: api/orders/merchant (Merchant - orders for their shop)
         [HttpGet("merchant")]
         [Authorize(Roles = "Merchant")]
-        public async Task<ActionResult<IEnumerable<Order>>> GetMerchantOrders()
+        public async Task<ActionResult<IEnumerable<Order>>> GetMerchantOrders([FromQuery] string? status = null)
         {
             var merchantId = User.FindFirst("MerchantId")?.Value;
             if (merchantId == null) return Unauthorized();
 
-            return await _context.Orders
-                .Where(o => o.MerchantId == Guid.Parse(merchantId))
+            var query = _context.Orders
+                .Where(o => o.MerchantId == Guid.Parse(merchantId));
+
+            // Filter by status if provided
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(o => o.Status == status);
+            }
+
+            return await query
                 .Include(o => o.Customer)
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
@@ -79,6 +87,49 @@ namespace Samaan.API.Controllers
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userId == null) return Unauthorized();
 
+            // Validate merchant exists
+            var merchant = await _context.Merchants
+                .FirstOrDefaultAsync(m => m.Id == request.MerchantId);
+            
+            if (merchant == null)
+            {
+                return BadRequest(new { message = "Merchant not found" });
+            }
+
+            if (!merchant.IsOpen)
+            {
+                return BadRequest(new { message = "Merchant shop is currently closed" });
+            }
+
+            // Validate all products belong to the merchant
+            var productIds = request.Items.Select(i => i.ProductId).ToList();
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.Id))
+                .ToListAsync();
+
+            if (products.Count != request.Items.Count)
+            {
+                return BadRequest(new { message = "One or more products not found" });
+            }
+
+            foreach (var product in products)
+            {
+                if (product.MerchantId != request.MerchantId)
+                {
+                    return BadRequest(new { message = $"Product {product.Name} does not belong to this merchant" });
+                }
+
+                if (!product.IsAvailable)
+                {
+                    return BadRequest(new { message = $"Product {product.Name} is not available" });
+                }
+
+                if (product.Stock < request.Items.First(i => i.ProductId == product.Id).Quantity)
+                {
+                    return BadRequest(new { message = $"Insufficient stock for product {product.Name}" });
+                }
+            }
+
             var order = new Order
             {
                 Id = Guid.NewGuid(),
@@ -89,45 +140,56 @@ namespace Samaan.API.Controllers
                 DeliveryFee = request.DeliveryFee,
                 Discount = request.Discount,
                 GrandTotal = request.ItemsTotal + request.DeliveryFee - request.Discount,
-                Status = "Placed",
+                Status = "new",
                 PaymentMethod = request.PaymentMethod,
                 DeliveryAddress = request.DeliveryAddress,
                 DeliveryInstructions = request.DeliveryInstructions,
-                EstimatedDelivery = "15-20 mins"
+                EstimatedDelivery = "15-20 mins",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
             _context.Orders.Add(order);
 
-            // Add order items
+            // Add order items and update product stock
             foreach (var item in request.Items)
             {
-                var product = await _context.Products.FindAsync(item.ProductId);
-                if (product != null)
+                var product = products.First(p => p.Id == item.ProductId);
+                
+                var orderItem = new OrderItem
                 {
-                    var orderItem = new OrderItem
-                    {
-                        Id = Guid.NewGuid(),
-                        OrderId = order.Id,
-                        ProductId = item.ProductId,
-                        ProductName = product.Name,
-                        Quantity = item.Quantity,
-                        UnitPrice = product.Price,
-                        Total = product.Price * item.Quantity
-                    };
-                    _context.OrderItems.Add(orderItem);
+                    Id = Guid.NewGuid(),
+                    OrderId = order.Id,
+                    ProductId = item.ProductId,
+                    ProductName = product.Name,
+                    Quantity = item.Quantity,
+                    UnitPrice = product.Price,
+                    Total = product.Price * item.Quantity
+                };
+                _context.OrderItems.Add(orderItem);
+
+                // Update product stock
+                product.Stock -= item.Quantity;
+                if (product.Stock <= 0)
+                {
+                    product.IsAvailable = false;
                 }
             }
 
             // Update merchant total orders
-            var merchant = await _context.Merchants.FindAsync(request.MerchantId);
-            if (merchant != null)
-            {
-                merchant.TotalOrders += 1;
-            }
+            merchant.TotalOrders += 1;
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, order);
+            // Reload order with all related data for response
+            var createdOrder = await _context.Orders
+                .Include(o => o.Merchant)
+                .Include(o => o.Customer)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(o => o.Id == order.Id);
+
+            return CreatedAtAction(nameof(GetOrder), new { id = order.Id }, createdOrder);
         }
 
         // PUT: api/orders/{id}/status (Merchant updates status)

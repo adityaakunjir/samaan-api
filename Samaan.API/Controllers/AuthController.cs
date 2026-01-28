@@ -4,6 +4,7 @@ using Samaan.API.Data;
 using Samaan.API.DTOs;
 using Samaan.API.Models;
 using Samaan.API.Services;
+using Google.Apis.Auth;
 
 namespace Samaan.API.Controllers
 {
@@ -13,11 +14,13 @@ namespace Samaan.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly TokenService _tokenService;
+        private readonly IConfiguration _configuration;
 
-        public AuthController(ApplicationDbContext context, TokenService tokenService)
+        public AuthController(ApplicationDbContext context, TokenService tokenService, IConfiguration configuration)
         {
             _context = context;
             _tokenService = tokenService;
+            _configuration = configuration;
         }
 
         [HttpPost("login")]
@@ -151,6 +154,81 @@ namespace Samaan.API.Controllers
                     ShopName = merchant?.ShopName
                 }
             });
+        }
+
+        [HttpPost("google")]
+        public async Task<ActionResult<AuthResponse>> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            try
+            {
+                // Verify Google token
+                var settings = new GoogleJsonWebSignature.ValidationSettings
+                {
+                    Audience = new[] { _configuration["GoogleOAuth:ClientId"] }
+                };
+
+                var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
+
+                if (payload == null)
+                {
+                    return Ok(new AuthResponse
+                    {
+                        Success = false,
+                        Message = "Invalid Google token"
+                    });
+                }
+
+                // Check if user exists
+                var user = await _context.Users
+                    .Include(u => u.Merchant)
+                    .FirstOrDefaultAsync(u => u.Email == payload.Email);
+
+                // If user doesn't exist, create new user
+                if (user == null)
+                {
+                    user = new User
+                    {
+                        Id = Guid.NewGuid(),
+                        Email = payload.Email,
+                        PasswordHash = "GoogleOAuth_" + Guid.NewGuid().ToString(), // Placeholder hash for OAuth users
+                        FullName = payload.Name ?? payload.Email.Split('@')[0],
+                        Role = "Customer",
+                        CreatedAt = DateTime.UtcNow,
+                        IsActive = true
+                    };
+
+                    _context.Users.Add(user);
+                    await _context.SaveChangesAsync();
+                }
+
+                // Generate JWT token
+                var token = _tokenService.GenerateToken(user, user.Merchant?.Id);
+
+                return Ok(new AuthResponse
+                {
+                    Success = true,
+                    Message = "Google login successful",
+                    Token = token,
+                    User = new UserInfo
+                    {
+                        Id = user.Id,
+                        Email = user.Email,
+                        FullName = user.FullName,
+                        Role = user.Role,
+                        Phone = user.Phone,
+                        MerchantId = user.Merchant?.Id,
+                        ShopName = user.Merchant?.ShopName
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new AuthResponse
+                {
+                    Success = false,
+                    Message = $"Google authentication failed: {ex.Message}"
+                });
+            }
         }
     }
 }

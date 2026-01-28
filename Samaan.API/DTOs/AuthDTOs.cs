@@ -54,4 +54,10 @@ namespace Samaan.API.DTOs
         public Guid? MerchantId { get; set; }
         public string? ShopName { get; set; }
     }
+
+    public class GoogleLoginRequest
+    {
+        [Required]
+        public string IdToken { get; set; } = string.Empty;
+    }
 }

@@ -68,7 +68,10 @@ namespace Samaan.API.Controllers
         {
             if (string.IsNullOrEmpty(q))
             {
-                return await _context.Products.Where(p => p.IsAvailable).ToListAsync();
+                return await _context.Products
+                    .Where(p => p.IsAvailable)
+                    .Include(p => p.Merchant)
+                    .ToListAsync();
             }
 
             return await _context.Products
@@ -76,6 +79,7 @@ namespace Samaan.API.Controllers
                     (p.Name.Contains(q) ||
                      p.Brand!.Contains(q) ||
                      p.Category!.Contains(q)))
+                .Include(p => p.Merchant)
                 .ToListAsync();
         }
 
