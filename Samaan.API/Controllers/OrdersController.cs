@@ -133,7 +133,7 @@ namespace Samaan.API.Controllers
             var order = new Order
             {
                 Id = Guid.NewGuid(),
-                OrderNumber = $"SAM{DateTime.Now:yyMMddHHmmss}",
+                OrderNumber = $"SAM{DateTime.UtcNow:yyMMddHHmmssfff}",
                 CustomerId = Guid.Parse(userId),
                 MerchantId = request.MerchantId,
                 ItemsTotal = request.ItemsTotal,
