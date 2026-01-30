@@ -28,7 +28,10 @@ namespace Samaan.API.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Role, user.Role)
+                // Use ClaimTypes.Role to match the RoleClaimType in Program.cs JWT configuration
+                // Also add a simple "role" claim for compatibility with both inbound mapping styles
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("role", user.Role)
             };
 
             if (merchantId.HasValue)

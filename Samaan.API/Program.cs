@@ -37,7 +37,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSettings["Issuer"],
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-            RoleClaimType = ClaimTypes.Role,
+            RoleClaimType = "role",  // Use simple "role" claim name (matches what we put in the token)
             NameClaimType = ClaimTypes.NameIdentifier
         };
     });
