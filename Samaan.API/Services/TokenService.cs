@@ -28,8 +28,9 @@ namespace Samaan.API.Services
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Name, user.FullName),
-                // Use ClaimTypes.Role to match the RoleClaimType in Program.cs JWT configuration
-                // Also add a simple "role" claim for compatibility with both inbound mapping styles
+                // Include both role claim formats for maximum compatibility:
+                // - ClaimTypes.Role: Works with ASP.NET Core's default claim mapping
+                // - "role": Works if inbound claim mapping is cleared
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("role", user.Role)
             };

@@ -18,12 +18,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Add services
 builder.Services.AddScoped<TokenService>();
 
+
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"]!;
 
-// Fix for JWT claim mapping - prevents ASP.NET Core from remapping claims to long XML namespaces
-System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
+// Note: We keep the default inbound claim type map so that old tokens with XML namespace claims
+// are automatically mapped to their short names (e.g., ClaimTypes.Role -> "role")
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -37,7 +38,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidIssuer = jwtSettings["Issuer"],
             ValidAudience = jwtSettings["Audience"],
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-            RoleClaimType = "role",  // Use simple "role" claim name (matches what we put in the token)
+            RoleClaimType = ClaimTypes.Role,  // Use ClaimTypes.Role for proper claim mapping
             NameClaimType = ClaimTypes.NameIdentifier
         };
     });
