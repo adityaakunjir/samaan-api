@@ -8,7 +8,7 @@ Backend API for **Samaan**, a multi-role grocery delivery platform (Customer + M
 ## Related Repositories
 - **Customer App:** https://github.com/adityaakunjir/samaan-customer
 - **Merchant App:** https://github.com/adityaakunjir/samaan-merchant
-- **Portfolio Repo:** (create repo `Samaan` and link it here)
+- **Portfolio Repo:** https://github.com/adityaakunjir/Samaan
 
 ## Tech Stack
 - C#, .NET 8, ASP.NET Core Web API (Controllers)
