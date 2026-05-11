@@ -3,7 +3,7 @@
 Backend API for **Samaan**, a multi-role grocery delivery platform (Customer + Merchant). Built with **.NET 8**, **ASP.NET Core Web API**, **JWT authentication**, **role-based authorization**, **EF Core**, and **SQL Server / Azure SQL**.
 
 ## Live
-- **Swagger:** https://samaan-api.azurewebsites.net/swagger
+- **Swagger:** https://samaan-api.onrender.com/swagger
 
 ## Related Repositories
 - **Customer App:** https://github.com/adityaakunjir/samaan-customer
